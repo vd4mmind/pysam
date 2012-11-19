@@ -393,6 +393,13 @@ cdef class GTFProxy( TupleProxy ):
                self.hasOwnAttributes = False
            self._setindex(8, value )
 
+    cdef char * getAttributes( self ):
+       '''return pointer to attributes.'''
+       if self.hasOwnAttributes:
+           return self._attributes
+       else:
+           return self.fields[ 8 ]
+
     def asDict( self ):
         """parse attributes - return as dict
         """
@@ -497,29 +504,46 @@ cdef class GTFProxy( TupleProxy ):
         Only called if there *isn't* an attribute with this name
         """
         cdef char * start
-        cdef char * query 
+        cdef char * query = item
         cdef char * cpy
         cdef char * end
         cdef int l
+
+        #
+        # important to use the getAttributes function.
+        # Using the self.attributes property to access
+        # the attributes caused a hard-to-trace bug
+        # in which fields in the attribute string were
+        # set to 0.
+        # Running through valgrind complained that
+        # memory was accessed in the memory field
+        # that has been released. It is not clear
+        # why this happened and might be a cython bug
+        # (Version 0.16). The valgrind warnings
+        # disappeard after accessing the C data structures
+        # directly and so did the bug.
+        cdef char * attributes = self.getAttributes()
+
         r = _force_bytes(item)
         query = r
-        
-        start = strstr( self.attributes, query)
+        start = strstr( attributes, query)
+
         if start == NULL:
             raise AttributeError("'GTFProxy' has no attribute '%s'" % item )
 
         start += strlen(query) + 1
         # skip gaps before
         while start[0] == ' ': start += 1
+
         if start[0] == '"':
             start += 1
             end = start
             while end[0] != '\0' and end[0] != '"': end += 1
             l = end - start
-            result = start[:l].decode("ascii")
+            result = _force_str( PyBytes_FromStringAndSize( start, l ) )
             return result
         else:
-            return start
+            return _force_str( start )
 
     def setAttribute( self, name, value ):
         '''convenience method to set an attribute.'''
