@@ -566,6 +566,9 @@ cdef class Fastqfile:
         This method expects an indexed fasta file.
         '''
 
+        if not os.path.exists( filename ):
+            raise IOError( "No such file or directory: %s" % filename )
+
         # close a previously opened file
         # if self.fastqfile != NULL: self.close()
         if self._filename != NULL: free(self._filename)
@@ -612,22 +615,6 @@ cdef class Fastqfile:
             return makeFastqProxy( self.entry )
         else:
             raise StopIteration
-
-    def test( self ):
-
-        cdef int l
-
-        while 1:
-            l = kseq_read(self.entry)
-            if l <= 0: break
-            printf( "name: %s\n", self.entry.name.s)  
-            if self.entry.comment.l:
-                printf("comment: %s\n", self.entry.comment.s)
-            printf("seq: %s\n", self.entry.seq.s)
-            if (self.entry.qual.l):
-                printf("qual: %s\n", self.entry.qual.s);  
-
-        printf("return value: %d\n", l);
 
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
